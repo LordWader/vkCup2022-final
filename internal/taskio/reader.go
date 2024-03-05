@@ -20,13 +20,19 @@ var bufPool = sync.Pool{New: func() interface{} {
 }
 
 func ReadFile() {
-	chunks := ChunkExtractor("tmp/0.png")
+	files := []string{"tmp/0.png", "tmp/1.png", "tmp/2.png"}
+	chunks := make([]*Chunk, 0)
+	for _, f := range files {
+		chunks = append(chunks, ChunkExtractor(f)...)
+	}
 	for _, c := range chunks {
 		fmt.Println(c.CType, c.Length, c.Crc32)
 	}
 	// Construct png and save it
 	out, _ := os.Create("output.png")
+	defer out.Close()
 	buf := bufio.NewWriter(out)
+	//buf = bufio.NewWriterSize(buf, 60800)
 	// Write header
 	buf.WriteString(PNGHeader)
 	// Write Idhf
@@ -39,7 +45,9 @@ func ReadFile() {
 	buf.WriteString(idhf.CType)
 	// write content
 	// here we can resize image by half
-	idhf.Data = []byte{0, 0, 2, 0, 0, 0, 2, 0, 8, 2, 0, 0, 0}
+	// 0 0 4 0 - 1024 width
+	// 0 0 2 0 - 512 hight
+	idhf.Data = []byte{0, 0, 2, 0, 0, 0, 6, 0, 8, 2, 0, 0, 0}
 	buf.Write(idhf.Data)
 	// write crc32 - checksum
 	crc := crc32.NewIEEE()
@@ -49,17 +57,18 @@ func ReadFile() {
 	buf.Write(b)
 
 	// write png content
-	data := chunks[1]
-	newLength := data.Length
-	binary.BigEndian.PutUint32(b, uint32(newLength))
-	buf.Write(b)
-	buf.WriteString(data.CType)
-	buf.Write(data.Data[:])
-	crc = crc32.NewIEEE()
-	crc.Write([]byte("IDAT"))
-	crc.Write(data.Data[:])
-	binary.BigEndian.PutUint32(b, crc.Sum32())
-	buf.Write(b)
+	for _, c := range []*Chunk{chunks[1], chunks[4], chunks[7]} {
+		binary.BigEndian.PutUint32(b, uint32(c.Length))
+		buf.Write(b)
+		buf.WriteString(c.CType)
+		buf.Write(c.Data)
+		//crc = crc32.NewIEEE()
+		//crc.Write([]byte("IDAT"))
+		//crc.Write(c.Data)
+		//binary.BigEndian.PutUint32(b, crc.Sum32())
+		buf.Write(c.Crc32)
+		buf.Flush()
+	}
 
 	// write IEND
 	end := chunks[2]
@@ -69,6 +78,8 @@ func ReadFile() {
 	buf.Write(end.Data)
 	buf.Write(end.Crc32)
 	buf.Flush()
+
+	//img, _, _ := png.Decode()
 	fmt.Println("Success!")
 }
 

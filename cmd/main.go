@@ -4,7 +4,10 @@ import (
 	"os"
 	"vkCup2022-final/internal/http"
 	"vkCup2022-final/internal/parser"
+	"vkCup2022-final/internal/taskio"
 )
+
+// TODO - Добавить конкатенацию и разобраться как резать изображение в разных плоскостях
 
 func main() {
 	// store all files here
@@ -17,4 +20,6 @@ func main() {
 		go c.DownloadImage()
 	}
 	c.MakeBFSWalk(p.ImageCh, p.DownloadCh)
+	taskio.ReadFile()
+	taskio.CheckFile()
 }

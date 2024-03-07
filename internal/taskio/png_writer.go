@@ -92,6 +92,7 @@ func (p *PNGWriter) WriteImage(m *image.Paletted) error {
 
 	b := m.Bounds()
 	for y := b.Min.Y; y < b.Max.Y; y++ {
+		// for correct merging
 		if _, err := p.zw.Write([]byte{0}); err != nil {
 			return err
 		}

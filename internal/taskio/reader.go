@@ -20,22 +20,17 @@ var bufPool = sync.Pool{New: func() interface{} {
 }
 
 func CreateImage() {
+	imageLegth := 100
 	fo, _ := os.Create("output.png")
 
-	imageList := []string{"tmp/0.png",
-		"tmp/1.png",
-		"tmp/2.png",
-		"tmp/3.png",
-		"tmp/4.png",
-		"tmp/5.png",
-		"tmp/6.png",
-		"tmp/7.png",
-		"tmp/8.png",
-		"tmp/9.png"}
+	imageList := make([]string, imageLegth, imageLegth)
+	for i := 0; i < imageLegth; i++ {
+		imageList[i] = fmt.Sprintf("tmp/%d.png", i)
+	}
 
 	wr := NewPNGwriter(fo)
 	wr.WriteHeader()
-	wr.WriteIHDR(512, 512*len(imageList))
+	wr.WriteIHDR(512, 512*imageLegth)
 	palette := make(color.Palette, 255)
 	for i := range palette {
 		palette[i] = color.NRGBA{0, 0, uint8(i), 255}
@@ -53,7 +48,7 @@ func CreateImage() {
 		upLeft := image.Point{0, 0}
 		lowRight := image.Point{width, height}
 
-		img := image.NewPaletted(image.Rectangle{upLeft, lowRight}, palette)
+		img := image.NewPaletted(image.Rectangle{upLeft, lowRight}, nil)
 		for y := 0; y < height; y++ {
 			dstPixOffset := img.PixOffset(0, y)
 			for x := 0; x < width; x++ {

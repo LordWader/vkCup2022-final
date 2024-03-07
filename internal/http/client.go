@@ -35,8 +35,6 @@ func (c *Client) MakeBFSWalk(imageCh, downloadCh chan<- string) {
 	defer func() {
 		close(imageCh)
 		close(downloadCh)
-		close(c.DownloadCh)
-		close(c.NewHrefCh)
 	}()
 	for len(c.queue) > 0 {
 		next := c.queue[0]

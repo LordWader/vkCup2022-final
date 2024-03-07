@@ -1,10 +1,10 @@
 package taskio
 
 import (
-	"bufio"
-	"encoding/binary"
 	"fmt"
-	"hash/crc32"
+	"image"
+	"image/color"
+	_ "image/png"
 	"os"
 	"sync"
 )
@@ -19,68 +19,52 @@ var bufPool = sync.Pool{New: func() interface{} {
 },
 }
 
-func ReadFile() {
-	files := []string{"tmp/0.png", "tmp/1.png", "tmp/2.png"}
-	chunks := make([]*Chunk, 0)
-	for _, f := range files {
-		chunks = append(chunks, ChunkExtractor(f)...)
-	}
-	for _, c := range chunks {
-		fmt.Println(c.CType, c.Length, c.Crc32)
-	}
-	// Construct png and save it
-	out, _ := os.Create("output.png")
-	defer out.Close()
-	buf := bufio.NewWriter(out)
-	//buf = bufio.NewWriterSize(buf, 60800)
-	// Write header
-	buf.WriteString(PNGHeader)
-	// Write Idhf
-	idhf := chunks[0]
-	// write length
-	b := make([]byte, 4)
-	binary.BigEndian.PutUint32(b, uint32(idhf.Length))
-	buf.Write(b)
-	// write chunk type
-	buf.WriteString(idhf.CType)
-	// write content
-	// here we can resize image by half
-	// 0 0 4 0 - 1024 width
-	// 0 0 2 0 - 512 hight
-	idhf.Data = []byte{0, 0, 2, 0, 0, 0, 6, 0, 8, 2, 0, 0, 0}
-	buf.Write(idhf.Data)
-	// write crc32 - checksum
-	crc := crc32.NewIEEE()
-	crc.Write([]byte("IHDR"))
-	crc.Write(idhf.Data)
-	binary.BigEndian.PutUint32(b, crc.Sum32())
-	buf.Write(b)
+func CreateImage() {
+	fo, _ := os.Create("output.png")
 
-	// write png content
-	for _, c := range []*Chunk{chunks[1], chunks[4], chunks[7]} {
-		binary.BigEndian.PutUint32(b, uint32(c.Length))
-		buf.Write(b)
-		buf.WriteString(c.CType)
-		buf.Write(c.Data)
-		//crc = crc32.NewIEEE()
-		//crc.Write([]byte("IDAT"))
-		//crc.Write(c.Data)
-		//binary.BigEndian.PutUint32(b, crc.Sum32())
-		buf.Write(c.Crc32)
-		buf.Flush()
+	imageList := []string{"tmp/0.png",
+		"tmp/1.png",
+		"tmp/2.png",
+		"tmp/3.png",
+		"tmp/4.png",
+		"tmp/5.png",
+		"tmp/6.png",
+		"tmp/7.png",
+		"tmp/8.png",
+		"tmp/9.png"}
+
+	wr := NewPNGwriter(fo)
+	wr.WriteHeader()
+	wr.WriteIHDR(512, 512*len(imageList))
+	palette := make(color.Palette, 255)
+	for i := range palette {
+		palette[i] = color.NRGBA{0, 0, uint8(i), 255}
 	}
+	wr.WritePLTE(palette)
 
-	// write IEND
-	end := chunks[2]
-	binary.BigEndian.PutUint32(b, uint32(end.Length))
-	buf.Write(b)
-	buf.WriteString(end.CType)
-	buf.Write(end.Data)
-	buf.Write(end.Crc32)
-	buf.Flush()
+	for _, ii := range imageList {
+		fi, _ := os.Open(ii)
+		toParce, _, _ := image.Decode(fi)
 
-	//img, _, _ := png.Decode()
-	fmt.Println("Success!")
+		width := 512
+		height := 512
+
+		// TODO - may be y should be + i?
+		upLeft := image.Point{0, 0}
+		lowRight := image.Point{width, height}
+
+		img := image.NewPaletted(image.Rectangle{upLeft, lowRight}, palette)
+		for y := 0; y < height; y++ {
+			dstPixOffset := img.PixOffset(0, y)
+			for x := 0; x < width; x++ {
+				_, _, b, _ := toParce.At(x, y).RGBA()
+				img.Pix[dstPixOffset+x] = uint8(b)
+			}
+		}
+		wr.WriteIDAT(img)
+		_ = fi.Close()
+	}
+	wr.WriteIEND()
 }
 
 func CheckFile() {
